@@ -9,13 +9,20 @@ clock = pygame.time.Clock()
 running = True
 
 dt = 0
-circle_pos = pygame.Vector2(screen.get_width() / 2, screen.get_height() / 2)
+
+simulation = fs.FluidSim(10, 10, 5, 5, -9.8, 720, -720, -720, 720, [screen.get_width() / 2, screen.get_height() / 2])
 
 def update():
     # fill the screen with a color to wipe away anything from last frame
     screen.fill("black")
 
-    pygame.draw.circle(screen, "blue", circle_pos, 10)
+    # pygame.draw.circle(screen, "blue", circle_pos, 10)
+
+    points = simulation.GetPositions()
+
+    for row in points:
+        for particle in row:
+            pygame.draw.circle(screen, "blue", pygame.Vector2(particle[0], particle[1]), 1)
 
     keys = pygame.key.get_pressed()
     if keys[pygame.K_w]:
@@ -30,8 +37,8 @@ def update():
     global dt 
     dt = clock.tick(60) / 1000
 
-def fixed_update(dt):
-    pass
+def fixed_update():
+    simulation.SimStep(dt)
 
 while running:
     # poll for events
@@ -41,6 +48,6 @@ while running:
             running = False
 
     update()
-    fixed_update(dt)
+    fixed_update()
 
 pygame.quit()
