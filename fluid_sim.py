@@ -34,6 +34,7 @@ class FluidSim:
         self.velocity += down * self.grav_force * dt
 
         # Check for collisions with bounding box
+        # TODO: Find less naive implementation
         for i in range(0, len(self.positions)):
             for j in range(0, len(self.positions[i])):
                 if not self.left_bound < self.positions[i][j][0] < self.right_bound:
@@ -42,9 +43,10 @@ class FluidSim:
                 if not self.bottom_bound < self.positions[i][j][1] < self.top_bound:
                     self.velocity[i][j][1] *= (-1 * collision_damping)
 
-        # Apply velocity to positions
+        # Add velocity to positions
         self.positions += self.velocity
-        # print(torch.linalg.norm(self.velocity))
+        
+        # Could be used to track temerature of sim: print(torch.linalg.norm(self.velocity))
 
     def GetPositions(self):
         return self.positions
