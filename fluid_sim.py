@@ -17,15 +17,30 @@ class FluidSim:
         self.SimInit()
 
     def SimInit(self):
-        self.positions = torch.zeros(self.vol_width, self.vol_length, 2)
+        self.positions = torch.zeros(self.vol_width * self.vol_length, 2)
         self.velocity = torch.zeros_like(self.positions)
 
-        for i in range(0, len(self.positions)):
-            for j in range(0, len(self.positions[i])):
+        idx = 0
+
+        for i in range(0, self.vol_length):
+            for j in range(0, self.vol_width):
                 pos = [self.origin[0] + i * (self.particle_size + self.particle_spacing), self.origin[1] + j * (self.particle_size + self.particle_spacing)]
-                self.positions[i][j][0], self.positions[i][j][1] = pos[0], pos[1]
+                self.positions[idx][0], self.positions[idx][1] = pos[0], pos[1]
+                idx += 1
 
     def SimStep(self, dt):
+
+        def SmoothingKernel(radius, distance):
+            value = max(0, radius * radius - distance * distance)
+            return value ** 3
+
+        def CalculateDensity(p):
+            density = 0
+            mass = 1
+            
+            for pos in self.positions:
+                pass
+
         # Initialize constants
         down = torch.Tensor([0, -1])
         collision_damping = 0.75
@@ -36,12 +51,11 @@ class FluidSim:
         # Check for collisions with bounding box
         # TODO: Find less naive implementation
         for i in range(0, len(self.positions)):
-            for j in range(0, len(self.positions[i])):
-                if not self.left_bound < self.positions[i][j][0] < self.right_bound:
-                    self.velocity[i][j][0] *= (-1 * collision_damping)
+            if not self.left_bound < self.positions[i][0] < self.right_bound:
+                self.velocity[i][0] *= (-1 * collision_damping)
 
-                if not self.bottom_bound < self.positions[i][j][1] < self.top_bound:
-                    self.velocity[i][j][1] *= (-1 * collision_damping)
+            if not self.bottom_bound < self.positions[i][1] < self.top_bound:
+                self.velocity[i][1] *= (-1 * collision_damping)
 
         # Add velocity to positions
         self.positions += self.velocity

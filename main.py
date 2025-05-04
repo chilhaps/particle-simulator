@@ -10,7 +10,28 @@ running = True
 
 dt = 0
 
-simulation = fs.FluidSim(10, 10, 5, 5, -9.8, 720, -720, -720, 720, [screen.get_width() / 2, screen.get_height() / 2])
+volume_length = 10
+volume_width = 10
+particle_size = 5
+particle_spacing = 10
+gravity_force = -9.81
+top_bound = 720
+bottom_bound = -720
+left_bound = 0
+right_bound = 720
+origin = [screen.get_width() / 2, screen.get_height() / 2]
+
+
+simulation = fs.FluidSim(volume_length, 
+                         volume_width, 
+                         particle_size, 
+                         particle_spacing, 
+                         gravity_force, 
+                         top_bound, 
+                         bottom_bound, 
+                         left_bound, 
+                         right_bound, 
+                         origin)
 
 def update():
     # fill the screen with a color to wipe away anything from last frame
@@ -18,11 +39,10 @@ def update():
 
     # pygame.draw.circle(screen, "blue", circle_pos, 10)
 
-    points = simulation.GetPositions()
+    particles = simulation.GetPositions()
 
-    for row in points:
-        for particle in row:
-            pygame.draw.circle(screen, "blue", pygame.Vector2(particle[0], particle[1]), 1)
+    for p in particles:
+        pygame.draw.circle(screen, "blue", pygame.Vector2(p[0], p[1]), particle_size)
 
     keys = pygame.key.get_pressed()
     if keys[pygame.K_w]:
