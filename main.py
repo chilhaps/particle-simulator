@@ -12,8 +12,9 @@ dt = 0
 
 volume_length = 10
 volume_width = 10
-particle_size = 5
-particle_spacing = 10
+particle_size = 1
+particle_spacing = 1
+smoothing_radius = 2
 gravity_force = -9.81
 top_bound = 720
 bottom_bound = -720
@@ -25,7 +26,8 @@ origin = [screen.get_width() / 2, screen.get_height() / 2]
 simulation = fs.FluidSim(volume_length, 
                          volume_width, 
                          particle_size, 
-                         particle_spacing, 
+                         particle_spacing,
+                         smoothing_radius,
                          gravity_force, 
                          top_bound, 
                          bottom_bound, 
@@ -43,6 +45,10 @@ def update():
 
     for p in particles:
         pygame.draw.circle(screen, "blue", pygame.Vector2(p[0], p[1]), particle_size)
+
+    densities = simulation.GetDensities()
+
+    # print(densities)
 
     keys = pygame.key.get_pressed()
     if keys[pygame.K_w]:

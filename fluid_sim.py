@@ -2,11 +2,23 @@ import torch
 import torch.nn as nn
 
 class FluidSim:
-    def __init__(self, vol_length, vol_width, particle_size, particle_spacing, grav_force, top_bound, bottom_bound, left_bound, right_bound, origin = [0, 0]):
+    def __init__(self, 
+                 vol_length, 
+                 vol_width, 
+                 particle_size, 
+                 particle_spacing, 
+                 smoothing_radius, 
+                 grav_force, top_bound, 
+                 bottom_bound, 
+                 left_bound, 
+                 right_bound, 
+                 origin = [0, 0]):
+        
         self.vol_length = vol_length
         self.vol_width = vol_width
         self.particle_size = particle_size
         self.particle_spacing = particle_spacing
+        self.smoothing_radius = smoothing_radius
         self.grav_force = grav_force
         self.top_bound = top_bound
         self.bottom_bound = bottom_bound
@@ -19,6 +31,7 @@ class FluidSim:
     def SimInit(self):
         self.positions = torch.zeros(self.vol_width * self.vol_length, 2)
         self.velocity = torch.zeros_like(self.positions)
+        self.densities = torch.zeros_like(self.positions)
 
         idx = 0
 
@@ -29,17 +42,22 @@ class FluidSim:
                 idx += 1
 
     def SimStep(self, dt):
-
         def SmoothingKernel(radius, distance):
             value = max(0, radius * radius - distance * distance)
             return value ** 3
 
-        def CalculateDensity(p):
+        def CalculateDensity(sample_point):
             density = 0
             mass = 1
             
-            for pos in self.positions:
-                pass
+            for position in self.positions:
+                distance = torch.linalg.norm(position - sample_point).item()
+                #print(distance)
+                influence = SmoothingKernel(self.smoothing_radius, distance)
+                #print(influence)
+                density += mass * influence
+            
+            return density
 
         # Initialize constants
         down = torch.Tensor([0, -1])
@@ -59,8 +77,13 @@ class FluidSim:
 
         # Add velocity to positions
         self.positions += self.velocity
+
+        self.densities = CalculateDensity(self.positions[0])
         
         # Could be used to track temerature of sim: print(torch.linalg.norm(self.velocity))
 
     def GetPositions(self):
         return self.positions
+    
+    def GetDensities(self):
+        return self.densities
