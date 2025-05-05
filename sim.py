@@ -1,6 +1,5 @@
 import random
 import torch
-import torch.nn as nn
 
 class Sim:
     def __init__(self, 
