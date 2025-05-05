@@ -1,7 +1,8 @@
 # Example file showing a circle moving on screen
 import pygame
+import pygame.locals
 import pygame_widgets
-import fluid_sim as fs
+import sim as sm
 
 from pygame_widgets.slider import Slider
 from pygame_widgets.textbox import TextBox
@@ -13,25 +14,24 @@ clock = pygame.time.Clock()
 running = True
 
 dt = 0
+click_radius = 5
 
-volume_length = 20
-volume_width = 20
+volume_length = 25
+volume_width = 25
 particle_size = 1
-particle_spacing = 3
-smoothing_radius = 10
+particle_spacing = 2
 gravity_force = -9.81
-top_bound = 720
-bottom_bound = -720
+top_bound = 0
+bottom_bound = 720
 left_bound = 0
 right_bound = 1280
 use_random_points = True
 origin = [screen.get_width() / 2, screen.get_height() / 2]
 
-simulation = fs.FluidSim(volume_length, 
+simulation = sm.Sim(volume_length, 
                          volume_width, 
                          particle_size, 
                          particle_spacing,
-                         smoothing_radius,
                          gravity_force, 
                          top_bound, 
                          bottom_bound, 
@@ -40,12 +40,8 @@ simulation = fs.FluidSim(volume_length,
                          use_random_points,
                          origin)
 
-if not use_random_points:
-    slider = Slider(screen, 100, 100, 800, 40, min=1, max=20, step=0.1)
-    slider_val = TextBox(screen, 80, 200, 200, 50, fontSize=12)
-    slider_val.disable()
-    density_output = TextBox(screen, 80, 249, 200, 50, fontSize=12)
-    density_output.disable()
+slider = Slider(screen, 80, 80, 360, 40, min=-20, max=20, step=0.1, handleColour=(255,255,255))
+output = TextBox(screen, 80, 160, 200, 25, fontSize=12)
 
 def update():
     # fill the screen with a color to wipe away anything from last frame
@@ -56,18 +52,16 @@ def update():
     for p in particles:
         pygame.draw.circle(screen, "blue", pygame.Vector2(p[0], p[1]), particle_size)
 
-    densities = simulation.get_densities()
+    mouse_coords = pygame.mouse.get_pos()
+    pygame.draw.circle(screen, "white", pygame.Vector2(mouse_coords), click_radius, width=1)
+
 
     keys = pygame.key.get_pressed()
     if keys[pygame.K_w]:
         pass
     
-    if not use_random_points:
-        density_output.setText(str(densities.tolist()[volume_length * round(0.5 * volume_width) + round(0.5 * volume_width)]))
-        slider_val.setText(str(slider.getValue()))
-        simulation.set_smoothing_radius(slider.getValue())
-        pygame.draw.circle(screen, "white", particles.tolist()[volume_length * round(0.5 * volume_width) + round(0.5 * volume_width)], slider.getValue(), 1)
-
+    output.setText('Gravity: {}'.format(str(slider.getValue())[:4]))
+    simulation.set_gravity(slider.getValue())
     pygame_widgets.update(events)
 
     # flip() the display to put your work on screen
@@ -79,6 +73,9 @@ def update():
     global dt 
     dt = clock.tick(60) / 1000
 
+    if pygame.mouse.get_pressed()[0]:
+        simulation.click_react(20, mouse_coords, click_radius, dt)
+
 def fixed_update():
     simulation.sim_step(dt)
 
@@ -89,6 +86,10 @@ while running:
     for event in events:
         if event.type == pygame.QUIT:
             running = False
+        elif event.type == pygame.locals.MOUSEWHEEL:
+            click_radius += event.y
+    
+    
 
     update()
     fixed_update()
