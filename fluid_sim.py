@@ -1,3 +1,4 @@
+import random
 import torch
 import torch.nn as nn
 
@@ -11,7 +12,8 @@ class FluidSim:
                  grav_force, top_bound, 
                  bottom_bound, 
                  left_bound, 
-                 right_bound, 
+                 right_bound,
+                 use_random_points = False, 
                  origin = [0, 0]):
         
         self.vol_length = vol_length
@@ -24,6 +26,7 @@ class FluidSim:
         self.bottom_bound = bottom_bound
         self.left_bound = left_bound
         self.right_bound = right_bound
+        self.use_random_points = use_random_points
         self.origin = origin
 
         self.sim_init()
@@ -36,11 +39,16 @@ class FluidSim:
 
         idx = 0
 
-        for i in range(0, self.vol_length):
-            for j in range(0, self.vol_width):
-                pos = [self.origin[0] + i * (self.particle_size + self.particle_spacing), self.origin[1] + j * (self.particle_size + self.particle_spacing)]
-                self.positions[idx][0], self.positions[idx][1] = pos[0], pos[1]
-                idx += 1
+        if self.use_random_points:
+            for i in range(0, len(self.positions)):
+                self.positions[i][0] = random.randint(self.left_bound, self.right_bound)
+                self.positions[i][1] = random.randint(self.bottom_bound, self.top_bound)
+        else:
+            for i in range(0, self.vol_length):
+                for j in range(0, self.vol_width):
+                    pos = [self.origin[0] + i * (self.particle_size + self.particle_spacing), self.origin[1] + j * (self.particle_size + self.particle_spacing)]
+                    self.positions[idx][0], self.positions[idx][1] = pos[0], pos[1]
+                    idx += 1
 
     def sim_step(self, dt):
         # Initialize simulation variables
@@ -65,33 +73,64 @@ class FluidSim:
             influences = torch.sum(smoothing_kernel(self.smoothing_radius, distances), 1)
             return influences * mass
 
-        def densities_to_pressure(densities):
-            density_error = densities - target_density
+        def density_to_pressure(density):
+            density_error = density - target_density
             pressure = density_error * pressure_multiplier
             return pressure
         
-        def calculate_pressure_force():
-            pass
+        def calculate_pressure_forces_beta(idx):
+            for i in range(0, len(self.positions)):
+                if i == idx: continue
 
-        # Calculate change in velocity due to gravitational force
+                offset = self.positions[i] - self.positions[idx]
+                distance = torch.linalg.norm(offset)
+
+                if distance == 0:
+                    offset = self.positions[random.randint(0, len(self.positions))] - self.positions[idx]
+                    distance = torch.linalg.norm(offset)
+                
+                direction = offset / distance
+
+                slope = smoothing_kernel_derivative(self.smoothing_radius, distance)
+                density = self.densities[i]
+                self.pressure_forces[i] += -density_to_pressure(density) * direction * slope * mass / density
+                
+
+        # Apply gravity
         self.velocities += down * self.grav_force * dt
 
-        # Check for collisions with bounding box
-        # TODO: Find less naive implementation
+        # Calculate densities
+        self.densities = calculate_densities()
+
+        # Calculate and apply pressure forces
+        # for i in range(0, len(self.positions)):
+        #    calculate_pressure_forces_beta(i)
+        
+        # pressure_acceleration = self.pressure_forces.view(2, len(self.densities)) / self.densities
+        # self.velocities += pressure_acceleration.view(len(self.velocities), 2) * dt
+
+        # Resolve collisions with bounding box
         for i in range(0, len(self.positions)):
-            if not self.left_bound < self.positions[i][0] < self.right_bound:
+            if self.positions[i][0] < self.left_bound:
+                self.positions[i][0] = self.left_bound
                 self.velocities[i][0] *= (-1 * collision_damping)
 
-            if not self.bottom_bound < self.positions[i][1] < self.top_bound:
+            if self.positions[i][0] > self.right_bound:
+                self.positions[i][0] = self.right_bound
+                self.velocities[i][0] *= (-1 * collision_damping)
+
+            if self.positions[i][1] < self.bottom_bound:
+                self.positions[i][1] = self.bottom_bound
                 self.velocities[i][1] *= (-1 * collision_damping)
 
-        # Add velocity to positions
+            if self.positions[i][1] > self.top_bound:
+                self.positions[i][1] = self.top_bound
+                self.velocities[i][1] *= (-1 * collision_damping)
+
+        # Update positions
         self.positions += self.velocities
 
-        # Calculate densities (may separate into function if needed)
-        self.densities = calculate_densities()
-        
-        # Could be used to track temerature of sim: print(torch.linalg.norm(self.velocities))
+        # Could be used to track temperature of sim: print(torch.linalg.norm(self.velocities))
 
     def get_positions(self):
         return self.positions

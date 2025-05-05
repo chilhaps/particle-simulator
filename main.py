@@ -12,25 +12,19 @@ screen = pygame.display.set_mode((1280, 720))
 clock = pygame.time.Clock()
 running = True
 
-slider = Slider(screen, 100, 100, 800, 40, min=0, max=20, step=0.1)
-slider_val = TextBox(screen, 80, 200, 200, 50, fontSize=12)
-slider_val.disable()
-
-density_output = TextBox(screen, 80, 249, 200, 50, fontSize=12)
-density_output.disable()
-
 dt = 0
 
-volume_length = 50
-volume_width = 50
+volume_length = 20
+volume_width = 20
 particle_size = 1
 particle_spacing = 3
 smoothing_radius = 10
-gravity_force = 0
+gravity_force = -9.81
 top_bound = 720
 bottom_bound = -720
 left_bound = 0
-right_bound = 720
+right_bound = 1280
+use_random_points = True
 origin = [screen.get_width() / 2, screen.get_height() / 2]
 
 simulation = fs.FluidSim(volume_length, 
@@ -42,8 +36,16 @@ simulation = fs.FluidSim(volume_length,
                          top_bound, 
                          bottom_bound, 
                          left_bound, 
-                         right_bound, 
+                         right_bound,
+                         use_random_points,
                          origin)
+
+if not use_random_points:
+    slider = Slider(screen, 100, 100, 800, 40, min=1, max=20, step=0.1)
+    slider_val = TextBox(screen, 80, 200, 200, 50, fontSize=12)
+    slider_val.disable()
+    density_output = TextBox(screen, 80, 249, 200, 50, fontSize=12)
+    density_output.disable()
 
 def update():
     # fill the screen with a color to wipe away anything from last frame
@@ -60,11 +62,11 @@ def update():
     if keys[pygame.K_w]:
         pass
     
-    density_output.setText(str(densities.tolist()[1275]))
-    slider_val.setText(str(slider.getValue()))
-    
-    simulation.set_smoothing_radius(slider.getValue())
-    pygame.draw.circle(screen, "white", particles.tolist()[1275], slider.getValue(), 1)
+    if not use_random_points:
+        density_output.setText(str(densities.tolist()[volume_length * round(0.5 * volume_width) + round(0.5 * volume_width)]))
+        slider_val.setText(str(slider.getValue()))
+        simulation.set_smoothing_radius(slider.getValue())
+        pygame.draw.circle(screen, "white", particles.tolist()[volume_length * round(0.5 * volume_width) + round(0.5 * volume_width)], slider.getValue(), 1)
 
     pygame_widgets.update(events)
 
