@@ -1,4 +1,3 @@
-# Example file showing a circle moving on screen
 import pygame
 import pygame.locals
 import pygame_widgets
@@ -7,27 +6,39 @@ import sim as sm
 from pygame_widgets.slider import Slider
 from pygame_widgets.textbox import TextBox
 
-# pygame setup
+# Environment variables
+SCREEN_WIDTH = 1280
+SCREEN_HEIGHT = 720
+
+# Pygame variables
 pygame.init()
-screen = pygame.display.set_mode((1280, 720))
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pygame.time.Clock()
 running = True
-
 dt = 0
-click_radius = 5
 
-volume_length = 25
-volume_width = 25
+# Input variables
+click_radius = 5
+clicking = False
+mouse_coords = ([0, 0])
+
+# Simulation init values
+volume_length = 50
+volume_width = 50
 particle_size = 1
 particle_spacing = 2
 gravity_force = -9.81
 top_bound = 0
-bottom_bound = 720
+bottom_bound = SCREEN_HEIGHT
 left_bound = 0
-right_bound = 1280
+right_bound = SCREEN_WIDTH
 use_random_points = True
-origin = [screen.get_width() / 2, screen.get_height() / 2]
+origin = [SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2]
 
+# Simulation variables
+reaction_force = 200000
+
+# Initialize sim object
 simulation = sm.Sim(volume_length, 
                          volume_width, 
                          particle_size, 
@@ -40,10 +51,26 @@ simulation = sm.Sim(volume_length,
                          use_random_points,
                          origin)
 
+# Initialize widget objects
 slider = Slider(screen, 80, 80, 360, 40, min=-20, max=20, step=0.1, handleColour=(255,255,255))
 output = TextBox(screen, 80, 160, 200, 25, fontSize=12)
 
+def draw_box(box_coords):
+    print(box_coords)
+    left = min(box_coords[0], box_coords[2]).item()
+    top = min(box_coords[1], box_coords[3]).item()
+    width = abs(box_coords[0] - box_coords[2]).item()
+    height = abs(box_coords[1] - box_coords[3]).item()
+
+    sample_box = pygame.Rect(left, top, width, height)
+    pygame.draw.rect(screen, 'red', sample_box, width=1)
+
 def update():
+    global dt
+    global mouse_coords
+    global clicking
+    global r_pressed
+
     # fill the screen with a color to wipe away anything from last frame
     screen.fill("black")
 
@@ -55,10 +82,10 @@ def update():
     mouse_coords = pygame.mouse.get_pos()
     pygame.draw.circle(screen, "white", pygame.Vector2(mouse_coords), click_radius, width=1)
 
-
     keys = pygame.key.get_pressed()
-    if keys[pygame.K_w]:
-        pass
+    if keys[pygame.K_r]:
+        coords = simulation.get_sample_box_coords()
+        draw_box(coords)
     
     output.setText('Gravity: {}'.format(str(slider.getValue())[:4]))
     simulation.set_gravity(slider.getValue())
@@ -70,14 +97,17 @@ def update():
     # limits FPS to 60
     # dt is delta time in seconds since last frame, used for framerate-
     # independent physics.
-    global dt 
     dt = clock.tick(60) / 1000
 
     if pygame.mouse.get_pressed()[0]:
-        simulation.click_react(20, mouse_coords, click_radius, dt)
+        clicking = True
+    else:
+        clicking = False
 
 def fixed_update():
     simulation.sim_step(dt)
+    if clicking:
+        simulation.click_react(reaction_force, mouse_coords, click_radius, dt)
 
 while running:
     # poll for events
@@ -88,8 +118,7 @@ while running:
             running = False
         elif event.type == pygame.locals.MOUSEWHEEL:
             click_radius += event.y
-    
-    
+            if click_radius < 0: click_radius = 0
 
     update()
     fixed_update()
