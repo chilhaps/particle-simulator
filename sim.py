@@ -55,6 +55,7 @@ class Sim:
                     idx += 1
 
     def calculate_collision_mask(self):
+        # Make tensors of rectangles connecting particle points and rectangle corners
         mask = torch.zeros_like(self.velocities)
 
         # Top-right boxes
@@ -89,6 +90,7 @@ class Sim:
 
         A4 = torchvision.ops.box_area(self.boxes).unsqueeze(0).transpose(0, 1)
 
+        # Compare rectange areas with window area to create collision mask for each window boundary
         top_mask = torch.where((A3 + A4 - self.env_area) > 0, -1, 0).expand(self.velocities.shape).clone()
         top_mask[:, 0] = 0
 
@@ -101,11 +103,13 @@ class Sim:
         right_mask = torch.where((A2 + A3 - self.env_area) > 0, -1, 0).expand(self.velocities.shape).clone()
         right_mask[:, 1] = 0
 
+        # Add masks and clamp min to -1
         mask += torch.clamp(top_mask + bottom_mask + left_mask + right_mask, min=-1)
 
         return mask
 
     def gaussian(self, tensor, p, sigma = 1):
+        # Calculate gaussian kernel between tensor and pos
         squared_distance = torch.abs(tensor - p)**2
         return torch.exp(-squared_distance / (2 * sigma**2))
 
@@ -117,9 +121,12 @@ class Sim:
         # Apply gravity
         self.velocities += self.down * self.grav_force * dt
 
-        # Resolve collisions
+        # Resolve collisions:
+        # Create collision mask, multiply by collision damping value, and set 0 values to 1
         collision_mask = self.calculate_collision_mask() * collision_damping
         collision_mask = torch.where(collision_mask == 0, 1, collision_mask)
+
+        # Multiply velocities by collision mask, clamp particle positions to window dimensions
         self.velocities *= collision_mask
         self.positions = torch.clamp(self.positions, min=torch.tensor([self.left_bound, self.top_bound]), max=torch.tensor([self.right_bound, self.bottom_bound]))
         
@@ -149,9 +156,14 @@ class Sim:
     def click_react(self, force, pos, radius, dt):
         pos = torch.Tensor(pos)
         distances = torch.pairwise_distance(self.positions, pos)
+
+        # Calculate gaussian kernel using distances between particles and mouse cursor and click radius
         distance_scalars = self.gaussian(distances, radius / 2, radius / 2)
+
+        # Calculate directions from particle positions to mouse cursor
         directions = (self.positions - pos) / torch.linalg.norm(self.positions - pos)
 
+        # Apply forces in calculated directions, multipled by gaussian scalars
         self.velocities += distance_scalars.unsqueeze(1) * directions * force * dt
 
         # Iterative approach (slow!!!)
