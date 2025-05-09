@@ -52,10 +52,46 @@ class Sim:
                     idx += 1
 
     def calculate_collision_mask(self):
+        mask = torch.zeros_like(self.velocities)
+
+        # Top-right boxes
         self.boxes[:, 0] = self.positions[:, 0]
         self.boxes[:, 1] = self.top_bound
         self.boxes[:, 2] = self.right_bound
         self.boxes[:, 3] = self.positions[:, 1]
+
+        A1 = torchvision.ops.box_area(self.boxes).unsqueeze(0).transpose(0, 1)
+
+        # Top-left boxes
+        self.boxes[:, 0] = self.left_bound
+        self.boxes[:, 1] = self.top_bound
+        self.boxes[:, 2] = self.positions[:, 0]
+        self.boxes[:, 3] = self.positions[:, 1]
+
+        A2 = torchvision.ops.box_area(self.boxes).unsqueeze(0).transpose(0, 1)
+
+        # Bottom-left boxes
+        self.boxes[:, 0] = self.left_bound
+        self.boxes[:, 1] = self.positions[:, 1]
+        self.boxes[:, 2] = self.positions[:, 0]
+        self.boxes[:, 3] = self.bottom_bound
+
+        A3 = torchvision.ops.box_area(self.boxes).unsqueeze(0).transpose(0, 1)
+
+        # Bottom-right boxes
+        self.boxes[:, 0] = self.positions[:, 0]
+        self.boxes[:, 1] = self.positions[:, 1]
+        self.boxes[:, 2] = self.right_bound
+        self.boxes[:, 3] = self.bottom_bound
+
+        A4 = torchvision.ops.box_area(self.boxes).unsqueeze(0).transpose(0, 1)
+
+        bottom_mask = torch.where((A1 + A2 - self.env_area) > 0, -1, 0).expand(self.velocities.shape).clone()
+        bottom_mask[:, 0] = 0
+
+        mask += bottom_mask
+
+        return mask
 
     def gaussian(self, tensor, p, sigma = 1):
         squared_distance = torch.abs(tensor - p)**2
@@ -70,9 +106,16 @@ class Sim:
         self.velocities += self.down * self.grav_force * dt
 
         # Resolve collisions
-        self.calculate_collision_mask()
+        torch.clamp(self.positions, min=torch.tensor([self.left_bound, self.top_bound]), max=torch.tensor([self.right_bound, self.bottom_bound]))
+        collision_mask = self.calculate_collision_mask() * collision_damping
+        final_mask = torch.where(collision_mask == 0, 1, collision_mask)
+
+        if torch.min(final_mask < 0): print('Collision detected')
+
+        self.velocities *= final_mask
         
         # Iterative collision detection (slow!!!)
+        '''
         for i in (range(0, len(self.positions))):
             if self.positions[i][0] < self.left_bound:
                 self.positions[i][0] = self.left_bound
@@ -89,6 +132,7 @@ class Sim:
             if self.positions[i][1] < self.top_bound:
                 self.positions[i][1] = self.top_bound
                 self.velocities[i][1] *= (-1 * collision_damping)
+        '''
 
         # Update positions
         self.positions += self.velocities

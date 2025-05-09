@@ -56,7 +56,6 @@ slider = Slider(screen, 80, 80, 360, 40, min=-20, max=20, step=0.1, handleColour
 output = TextBox(screen, 80, 160, 200, 25, fontSize=12)
 
 def draw_box(box_coords):
-    print(box_coords)
     left = min(box_coords[0], box_coords[2]).item()
     top = min(box_coords[1], box_coords[3]).item()
     width = abs(box_coords[0] - box_coords[2]).item()
@@ -69,7 +68,6 @@ def update():
     global dt
     global mouse_coords
     global clicking
-    global r_pressed
 
     # fill the screen with a color to wipe away anything from last frame
     screen.fill("black")
