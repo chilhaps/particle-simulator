@@ -31,13 +31,16 @@ class Sim:
         self.sim_init()
 
     def sim_init(self):
+        # Initialize simulation tensors
         self.positions = torch.zeros(self.vol_width * self.vol_length, 2)
         self.velocities = torch.zeros_like(self.positions)
         self.down = torch.Tensor([0, -1])
-
-        self.env_area = torchvision.ops.box_area(torch.tensor([self.left_bound, self.top_bound, self.right_bound, self.bottom_bound]).unsqueeze(0))
         self.boxes = torch.zeros(len(self.positions), 4)
 
+        # Precompute window area
+        self.env_area = torchvision.ops.box_area(torch.tensor([self.left_bound, self.top_bound, self.right_bound, self.bottom_bound]).unsqueeze(0))
+
+        # Calculate initial particle positions
         idx = 0
 
         if self.use_random_points:
@@ -86,10 +89,19 @@ class Sim:
 
         A4 = torchvision.ops.box_area(self.boxes).unsqueeze(0).transpose(0, 1)
 
+        top_mask = torch.where((A3 + A4 - self.env_area) > 0, -1, 0).expand(self.velocities.shape).clone()
+        top_mask[:, 0] = 0
+
         bottom_mask = torch.where((A1 + A2 - self.env_area) > 0, -1, 0).expand(self.velocities.shape).clone()
         bottom_mask[:, 0] = 0
 
-        mask += bottom_mask
+        left_mask = torch.where((A1 + A4 - self.env_area) > 0, -1, 0).expand(self.velocities.shape).clone()
+        left_mask[:, 1] = 0
+
+        right_mask = torch.where((A2 + A3 - self.env_area) > 0, -1, 0).expand(self.velocities.shape).clone()
+        right_mask[:, 1] = 0
+
+        mask += torch.clamp(top_mask + bottom_mask + left_mask + right_mask, min=-1)
 
         return mask
 
@@ -106,13 +118,10 @@ class Sim:
         self.velocities += self.down * self.grav_force * dt
 
         # Resolve collisions
-        torch.clamp(self.positions, min=torch.tensor([self.left_bound, self.top_bound]), max=torch.tensor([self.right_bound, self.bottom_bound]))
         collision_mask = self.calculate_collision_mask() * collision_damping
-        final_mask = torch.where(collision_mask == 0, 1, collision_mask)
-
-        if torch.min(final_mask < 0): print('Collision detected')
-
-        self.velocities *= final_mask
+        collision_mask = torch.where(collision_mask == 0, 1, collision_mask)
+        self.velocities *= collision_mask
+        self.positions = torch.clamp(self.positions, min=torch.tensor([self.left_bound, self.top_bound]), max=torch.tensor([self.right_bound, self.bottom_bound]))
         
         # Iterative collision detection (slow!!!)
         '''
