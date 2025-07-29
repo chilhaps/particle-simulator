@@ -23,8 +23,8 @@ clicking = False
 mouse_coords = ([0, 0])
 
 # Simulation init values
-volume_length = 50
-volume_width = 50
+volume_length = 100
+volume_width = 100
 particle_size = 1
 particle_spacing = 2
 gravity_force = -9.81
